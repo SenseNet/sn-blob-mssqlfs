@@ -16,7 +16,7 @@
     <tags>sensenet ecm ecms filestream blob provider</tags>
     <dependencies>
       <dependency id="Newtonsoft.Json" version="11.0.2" />
-      <dependency id="SenseNet.Tools" version="3.0.0" />
+      <dependency id="SenseNet.Tools" version="3.0.1" />
       <dependency id="SenseNet.BlobStorage" version="7.3.0" />
       <dependency id="SenseNet.Common" version="7.2.0" />
     </dependencies>
