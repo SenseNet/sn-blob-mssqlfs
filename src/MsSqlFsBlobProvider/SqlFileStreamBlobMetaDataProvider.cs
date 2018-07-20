@@ -508,15 +508,10 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
                     var providerName = reader.GetSafeString(3);
                     var providerTextData = reader.GetSafeString(4);
 
-                    byte[] rawData;
-                    if (reader.IsDBNull(5))
-                        rawData = null;
-                    else
-                        rawData = (byte[])reader.GetValue(5);
-
+                    byte[] rawData = null;
 
                     SqlFileStreamData fileStreamData = null;
-                    var useFileStream = reader.GetInt32(6) == 1;
+                    var useFileStream = providerName == null && reader.GetInt32(6) == 1;
                     if (useFileStream)
                     {
                         // fill Filestream info if we really need it
@@ -543,6 +538,10 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
                         context.BlobProviderData = new BuiltinBlobProviderData();
                     else if (provider is SqlFileStreamBlobProvider)
                         context.BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData };
+
+                    if (IsBuiltInOrSqlFileStreamProvider(provider))
+                        if (!reader.IsDBNull(5))
+                            rawData = (byte[])reader.GetValue(5);
 
                     return new BinaryCacheEntity
                     {
