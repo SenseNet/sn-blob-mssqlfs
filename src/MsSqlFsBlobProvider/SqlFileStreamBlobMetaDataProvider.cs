@@ -121,7 +121,6 @@ FROM  dbo.Files WHERE FileId = @FileId
                     blobProviderData = new SqlFileStreamBlobProviderData {FileStreamData = fsData};
                     // Name of the SqlFS and BuiltIn are the same: null
                     //   so currently need to change to the SqlFS provider.
-                    //provider = BlobStorageBase.GetProvider(length);
                     provider = new SqlFileStreamBlobProvider();
                 }
                 else
