@@ -121,7 +121,8 @@ FROM  dbo.Files WHERE FileId = @FileId
                     blobProviderData = new SqlFileStreamBlobProviderData {FileStreamData = fsData};
                     // Name of the SqlFS and BuiltIn are the same: null
                     //   so currently need to change to the SqlFS provider.
-                    provider = BlobStorageBase.GetProvider(length);
+                    //provider = BlobStorageBase.GetProvider(length);
+                    provider = new SqlFileStreamBlobProvider();
                 }
                 else
                     blobProviderData = new BuiltinBlobProviderData();
@@ -195,7 +196,7 @@ SELECT @BinPropId, @FileId, [Timestamp], FileStream.PathName(), GET_FILESTREAM_T
             // in the Files table to work, it just stores the bytes. 
             if (!IsBuiltInOrSqlFileStreamProvider(blobProvider) && streamLength > 0)
             {
-                    blobProvider.Allocate(ctx);
+                blobProvider.Allocate(ctx);
 
                 using (var stream = blobProvider.GetStreamForWrite(ctx))
                     value.Stream?.CopyTo(stream);
@@ -329,6 +330,7 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
         public void UpdateBinaryProperty(IBlobProvider blobProvider, BinaryDataValue value)
         {
             var streamLength = value.Stream?.Length ?? 0;
+            var isExternal = false;
             if (!IsBuiltInOrSqlFileStreamProvider(blobProvider) && streamLength > 0)
             {
                 var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
@@ -340,8 +342,7 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
                 };
 
                 blobProvider.Allocate(ctx);
-                using (var stream = blobProvider.GetStreamForWrite(ctx))
-                    value.Stream?.CopyTo(stream);
+                isExternal = true;
 
                 value.BlobProviderName = ctx.Provider.GetType().FullName;
                 value.BlobProviderData = BlobStorageContext.SerializeBlobProviderData(ctx.BlobProviderData);
@@ -354,7 +355,7 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
 
             var isRepositoryStream = value.Stream is RepositoryStream || value.Stream is SenseNetSqlFileStream;
             var hasStream = isRepositoryStream || value.Stream is MemoryStream;
-            if (!hasStream)
+            if (!isExternal && !hasStream)
                 // do not do any database operation if the stream is not modified
                 return;
 
@@ -411,34 +412,50 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
                 cmd?.Dispose();
             }
 
-            // ReSharper disable once InvertIf
-            if (blobProvider == BlobStorageBase.BuiltInProvider && !isRepositoryStream && streamLength > 0)
+            if (blobProvider == BlobStorageBase.BuiltInProvider)
             {
-                // Stream exists and is loaded -> write it
-                var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
+                if (!isRepositoryStream && streamLength > 0)
                 {
-                    VersionId = 0,
-                    PropertyTypeId = 0,
-                    FileId = value.FileId,
-                    Length = streamLength,
-                    BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
-                };
+                    var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
+                    {
+                        VersionId = 0,
+                        PropertyTypeId = 0,
+                        FileId = value.FileId,
+                        Length = streamLength,
+                        BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
+                    };
 
-                BuiltInBlobProvider.UpdateStream(ctx, value.Stream);
+                    BuiltInBlobProvider.UpdateStream(ctx, value.Stream);
+                }
             }
-            if (blobProvider is SqlFileStreamBlobProvider && !isRepositoryStream && streamLength > 0)
+            else if (blobProvider is SqlFileStreamBlobProvider)
             {
-                // Stream exists and is loaded -> write it
+                if (!isRepositoryStream && streamLength > 0)
+                {
+                    var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
+                    {
+                        VersionId = 0,
+                        PropertyTypeId = 0,
+                        FileId = value.FileId,
+                        Length = streamLength,
+                        BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
+                    };
+
+                    SqlFileStreamBlobProvider.UpdateStream(ctx, value.Stream);
+                }
+            }
+            else
+            {
                 var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
                 {
                     VersionId = 0,
                     PropertyTypeId = 0,
                     FileId = value.FileId,
                     Length = streamLength,
-                    BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
                 };
 
-                SqlFileStreamBlobProvider.UpdateStream(ctx, value.Stream);
+                using (var stream = blobProvider.GetStreamForWrite(ctx))
+                    value.Stream?.CopyTo(stream);
             }
         }
 
