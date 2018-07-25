@@ -10,6 +10,24 @@ This package is intended for older sensenet projects that once switched on the F
 > No. Please do not start using FileStream now, it is a legacy feature. We recommend using one of the available modern [blob providers](https://community.sensenet.com/docs/blob-provider).
 
 ## Usage
-We assume you already have the FileStream feature installed in sensenet (if not, this package is not for you). Please install the NuGet package above, set `SqlFileStreamBlobProvider` as the blob provider and `SqlFileStreamBlobMetaDataProvider` as the metadata provider either in the web.config (see the blob provider article above for configuration) or using the new [repository builder API](build-repository.md).
+We assume you already have the FileStream feature installed in sensenet and there are binaries stored in the FileStream column (if not, this package is not for you). Please install the NuGet package above to be able to access the new blob provider for FileStream.
 
-> **Important**: you have to set both of the providers above to make this feature work.
+### Migration mode
+The recommended approach is to install this provider along with a new external provider (e.g. [MongoDb](https://community.sensenet.com/docs/mongodb-provider)). This way you will be able to migrate your binaries stored in the FileStream column to a more modern blob provider.
+
+1. Set `SqlFileStreamBlobMetaDataProvider` as the *blob metadata provider* either in the web.config (see the blob provider article above for configuration) or using the new [repository builder API](build-repository.md). This is necessary for the system to recognize FileStream column information.
+2. Set the new external blob provider of your choice that you want to use from now on.
+
+> If you do not set an external provider, the system will save files back to the SQL database - which is an absolutely acceptable option.
+
+At this point you will have to write a simple tool that iterates through all the files that are stored in the FileStream column and save their binaries through the GetStream/SetStream API of the binary data class.
+
+After migrating all the binaries from the FileStream column to a new blob provider you may freely **remove this package** and the blob metadata provider configuration from your application.
+
+### Legacy mode
+In case you still want to *save* your binaries into the FileStream column in SQL Server, you have to configure this new provider as the external provider.
+
+> Please note that there can be only one external provider in the system **for writing**. For reading there can be any number of them, they just have to be present in the app domain as libraries.
+
+1. Set `SqlFileStreamBlobMetaDataProvider` as the *blob metadata provider* either in the web.config (see the blob provider article above for configuration) or using the new [repository builder API](build-repository.md). This is necessary for the system to recognize FileStream column information.
+2. Set `SqlFileStreamBlobProvider` as the blob provider.
