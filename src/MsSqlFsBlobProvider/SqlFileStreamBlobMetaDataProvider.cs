@@ -7,6 +7,7 @@ using SenseNet.Configuration;
 using SenseNet.ContentRepository.Storage;
 using SenseNet.ContentRepository.Storage.Data;
 using SenseNet.ContentRepository.Storage.Data.SqlClient;
+using SenseNet.Diagnostics;
 using SenseNet.Tools;
 using TransactionScope = SenseNet.ContentRepository.Storage.TransactionScope;
 
@@ -193,7 +194,7 @@ SELECT @BinPropId, @FileId, [Timestamp], FileStream.PathName(), GET_FILESTREAM_T
             // write the stream beforehand and get the generated provider data.
             // Note that the external provider does not need an existing record
             // in the Files table to work, it just stores the bytes. 
-            if (!IsBuiltInOrSqlFileStreamProvider(blobProvider) && streamLength > 0)
+            if (!IsBuiltInOrSqlFileStreamProvider(blobProvider))
             {
                 blobProvider.Allocate(ctx);
 
@@ -251,14 +252,14 @@ SELECT @BinPropId, @FileId, [Timestamp], FileStream.PathName(), GET_FILESTREAM_T
             // and sql filestream columns must exist before we can write a
             // stream into the record.
             // ReSharper disable once InvertIf
-            if (blobProvider == BlobStorageBase.BuiltInProvider && value.Stream != null && value.Stream.Length > 0)
+            if (blobProvider == BlobStorageBase.BuiltInProvider && value.Stream != null)
             {
                 ctx.FileId = value.FileId;
                 ctx.BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData };
 
                 BuiltInBlobProvider.AddStream(ctx, value.Stream);
             }
-            else if (blobProvider is SqlFileStreamBlobProvider && value.Stream != null && value.Stream.Length > 0)
+            else if (blobProvider is SqlFileStreamBlobProvider && value.Stream != null)
             {
                 ctx.FileId = value.FileId;
                 ctx.BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData };
@@ -330,7 +331,7 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
         {
             var streamLength = value.Stream?.Length ?? 0;
             var isExternal = false;
-            if (!IsBuiltInOrSqlFileStreamProvider(blobProvider) && streamLength > 0)
+            if (!IsBuiltInOrSqlFileStreamProvider(blobProvider))
             {
                 var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
                 {
@@ -413,35 +414,29 @@ SELECT @FileId, FileStream.PathName(), GET_FILESTREAM_TRANSACTION_CONTEXT() FROM
 
             if (blobProvider == BlobStorageBase.BuiltInProvider)
             {
-                if (!isRepositoryStream && streamLength > 0)
+                var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
                 {
-                    var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
-                    {
-                        VersionId = 0,
-                        PropertyTypeId = 0,
-                        FileId = value.FileId,
-                        Length = streamLength,
-                        BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
-                    };
+                    VersionId = 0,
+                    PropertyTypeId = 0,
+                    FileId = value.FileId,
+                    Length = streamLength,
+                    BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
+                };
 
-                    BuiltInBlobProvider.UpdateStream(ctx, value.Stream);
-                }
+                BuiltInBlobProvider.UpdateStream(ctx, value.Stream);
             }
             else if (blobProvider is SqlFileStreamBlobProvider)
             {
-                if (!isRepositoryStream && streamLength > 0)
+                var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
                 {
-                    var ctx = new BlobStorageContext(blobProvider, value.BlobProviderData)
-                    {
-                        VersionId = 0,
-                        PropertyTypeId = 0,
-                        FileId = value.FileId,
-                        Length = streamLength,
-                        BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
-                    };
+                    VersionId = 0,
+                    PropertyTypeId = 0,
+                    FileId = value.FileId,
+                    Length = streamLength,
+                    BlobProviderData = new SqlFileStreamBlobProviderData { FileStreamData = fileStreamData }
+                };
 
-                    SqlFileStreamBlobProvider.UpdateStream(ctx, value.Stream);
-                }
+                SqlFileStreamBlobProvider.UpdateStream(ctx, value.Stream);
             }
             else
             {
