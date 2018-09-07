@@ -31,3 +31,14 @@ In case you still want to *save* your binaries into the FileStream column in SQL
 
 1. Set `SqlFileStreamBlobMetaDataProvider` as the *blob metadata provider* either in the web.config (see the blob provider article above for configuration) or using the new [repository builder API](build-repository.md). This is necessary for the system to recognize FileStream column information.
 2. Set `SqlFileStreamBlobProvider` as the blob provider.
+
+Sample configuration fragment:
+
+```xml
+<blobstorage>
+      <add key="MetadataProvider" value="SenseNet.MsSqlFsBlobProvider.SqlFileStreamBlobMetaDataProvider" />
+      <add key="BlobProvider" value="SenseNet.MsSqlFsBlobProvider.SqlFileStreamBlobProvider" />
+</blobstorage>
+```
+
+> Please note that the blobstorage section may contain additional values, for example blob chunk sizes.
