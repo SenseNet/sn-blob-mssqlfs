@@ -123,10 +123,13 @@ namespace SenseNet.MsSqlFsBlobProvider
                     // every time.
                     var ctx = BlobStorageBase.GetBlobStorageContext(FileId);
                     if (ctx != null)
-                        if (ctx.Provider == BlobStorageBase.BuiltInProvider)
-                            _fileStreamData = ((SqlFileStreamBlobProviderData)ctx.BlobProviderData).FileStreamData;
+                    {
+                        if (SqlFileStreamBlobMetaDataProvider.IsBuiltInOrSqlFileStreamProvider(ctx.Provider))
+                            _fileStreamData = ((SqlFileStreamBlobProviderData) ctx.BlobProviderData).FileStreamData;
+                    }
+
                     if (_fileStreamData == null)
-                        throw new InvalidOperationException("Transaction data and file path could not be retrieved for SqlFilestream");
+                        throw new InvalidOperationException($"Transaction data and file path could not be retrieved for SqlFilestream. FileId: {FileId}. Provider: {ctx?.Provider?.GetType().FullName}");
                     
                     using (var fs = new SqlFileStream(_fileStreamData.Path, _fileStreamData.TransactionContext, FileAccess.Read, FileOptions.SequentialScan, 0))
                     {
